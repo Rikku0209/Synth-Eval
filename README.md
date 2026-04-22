@@ -48,7 +48,7 @@ Configure synthetic data size and target column
 Run full evaluation pipeline instantly
 Visualize results using charts and tables
 Download generated synthetic dataset
- Project Structure
+Project Structure
 ├── data/                          # Input datasets
 ├── models/                        # ML models
 ├── evaluation.py                  # Metrics implementation
