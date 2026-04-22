@@ -1,0 +1,2016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SynthEval — Synthetic Data Evaluation Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #080b12;
+    --surface: #0f1219;
+    --surface2: #161a24;
+    --surface3: #1d2130;
+    --border: #1e2332;
+    --border2: #2a2f42;
+    --accent: #00e5a0;
+    --accent2: #7c6fff;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --accent5: #38bdf8;
+    --text: #e8eaf0;
+    --text2: #8c92a4;
+    --text3: #4e5468;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --radius-xs: 6px;
+    --glow-green: rgba(0,229,160,0.18);
+    --glow-purple: rgba(124,111,255,0.18);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---- AMBIENT BG ---- */
+  .bg-ambient {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+  .bg-ambient::before {
+    content: '';
+    position: absolute;
+    width: 700px; height: 700px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,229,160,0.06) 0%, transparent 65%);
+    top: -200px; left: -200px;
+  }
+  .bg-ambient::after {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,111,255,0.06) 0%, transparent 65%);
+    bottom: -100px; right: -100px;
+  }
+
+  /* ---- GRID BG ---- */
+  .bg-grid {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.025) 1px, transparent 1px);
+    background-size: 52px 52px;
+  }
+
+  .page-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 28px 100px;
+  }
+
+  /* ---- HEADER ---- */
+  header {
+    padding: 44px 0 36px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 52px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .logo-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, rgba(0,229,160,0.15), rgba(124,111,255,0.15));
+    border: 1px solid rgba(0,229,160,0.3);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    box-shadow: 0 0 32px rgba(0,229,160,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .logo-text h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 27px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent) 0%, #a0f0d8 40%, var(--text) 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo-text p {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .header-badge {
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.18);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+  }
+
+  .header-tag {
+    background: rgba(124,111,255,0.08);
+    border: 1px solid rgba(124,111,255,0.18);
+    color: var(--accent2);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ---- SECTION LABEL ---- */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .section-label .label-num {
+    background: rgba(0,229,160,0.1);
+    border: 1px solid rgba(0,229,160,0.2);
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border2), transparent);
+  }
+
+  /* ---- INPUT MODE TABS ---- */
+  .input-mode-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .input-mode-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text3);
+    transition: all 0.2s;
+  }
+
+  .input-mode-btn:hover { color: var(--text2); border-color: var(--border2); }
+
+  .input-mode-btn.active {
+    background: rgba(0,229,160,0.08);
+    border-color: rgba(0,229,160,0.35);
+    color: var(--accent);
+    box-shadow: 0 0 16px rgba(0,229,160,0.08);
+  }
+
+  .input-mode-btn .mode-icon { font-size: 14px; }
+
+  /* ---- DROP ZONE ---- */
+  .upload-section { margin-bottom: 40px; }
+
+  .input-panel { display: none; }
+  .input-panel.active { display: block; }
+
+  .drop-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 52px 32px;
+    text-align: center;
+    background: var(--surface);
+    transition: all 0.25s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,229,160,0.05) 0%, transparent 70%);
+    opacity: 0; transition: opacity 0.3s;
+  }
+
+  .drop-zone:hover::before, .drop-zone.dragover::before { opacity: 1; }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.02);
+  }
+
+  .drop-icon { font-size: 38px; margin-bottom: 14px; display: block; }
+
+  .drop-zone h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px; font-weight: 700;
+    margin-bottom: 7px; color: var(--text);
+  }
+
+  .drop-zone p { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+
+  #fileInput { display: none; }
+
+  /* ---- URL PANEL ---- */
+  .url-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+  }
+
+  .url-panel h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px; font-weight: 700;
+    margin-bottom: 6px; color: var(--text);
+  }
+
+  .url-panel p { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+
+  .url-input-row {
+    display: flex; gap: 10px;
+  }
+
+  .url-input-row input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-input-row input[type="text"]::placeholder { color: var(--text3); }
+  .url-input-row input[type="text"]:focus { border-color: var(--accent); }
+
+  .url-examples {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    line-height: 1.7;
+  }
+
+  .url-examples strong { color: var(--text2); }
+
+  /* ---- BUTTONS ---- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 22px;
+    border-radius: var(--radius-sm);
+    font-family: 'Syne', sans-serif;
+    font-weight: 600; font-size: 14px;
+    cursor: pointer; border: none;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #080b12;
+    box-shadow: 0 0 20px rgba(0,229,160,0.18);
+  }
+
+  .btn-primary:hover {
+    background: #12ffc0;
+    box-shadow: 0 0 36px rgba(0,229,160,0.35);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.35; cursor: not-allowed; transform: none;
+    box-shadow: none;
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-download {
+    background: rgba(124,111,255,0.1);
+    color: var(--accent2);
+    border: 1px solid rgba(124,111,255,0.25);
+  }
+
+  .btn-download:hover {
+    background: rgba(124,111,255,0.2);
+    box-shadow: 0 0 20px rgba(124,111,255,0.18);
+  }
+
+  .btn-url {
+    background: rgba(0,229,160,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.25);
+    white-space: nowrap;
+  }
+
+  .btn-url:hover {
+    background: rgba(0,229,160,0.18);
+    box-shadow: 0 0 18px rgba(0,229,160,0.15);
+  }
+
+  /* ---- FILE INFO ---- */
+  .file-info {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-top: 14px;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .file-info.visible { display: flex; }
+
+  .file-icon {
+    width: 40px; height: 40px;
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.15);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+
+  .file-meta { flex: 1; min-width: 160px; }
+  .file-meta strong { font-size: 13px; font-family: 'DM Mono', monospace; color: var(--text); }
+  .file-meta span { font-size: 11px; color: var(--text3); display: block; margin-top: 2px; }
+
+  /* ---- GENERATOR SELECTOR ---- */
+  .gen-section { margin-bottom: 28px; }
+
+  .gen-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .gen-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px 14px;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .gen-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.22s;
+  }
+
+  .gen-card:hover {
+    border-color: var(--border2);
+    background: var(--surface2);
+    transform: translateY(-1px);
+  }
+
+  .gen-card.selected {
+    border-color: rgba(0,229,160,0.4);
+    background: rgba(0,229,160,0.04);
+    box-shadow: 0 0 24px rgba(0,229,160,0.07), inset 0 0 0 0.5px rgba(0,229,160,0.1);
+  }
+
+  .gen-card.selected::before { opacity: 1; }
+
+  .gen-card-icon {
+    font-size: 22px;
+    margin-bottom: 9px;
+    display: block;
+  }
+
+  .gen-card-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    transition: color 0.2s;
+  }
+
+  .gen-card.selected .gen-card-name { color: var(--accent); }
+
+  .gen-card-desc {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    line-height: 1.5;
+  }
+
+  .gen-check {
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 16px; height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: none;
+    align-items: center; justify-content: center;
+    font-size: 9px;
+    color: #080b12;
+    font-weight: 700;
+  }
+
+  .gen-card.selected .gen-check { display: flex; }
+
+  /* ---- CONFIG ---- */
+  .config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .config-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+
+  .config-card label {
+    display: block; font-size: 11px;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 10px; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .config-card select,
+  .config-card input[type="number"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 11px 14px;
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 14px; outline: none;
+    transition: border-color 0.2s; appearance: none;
+  }
+
+  .config-card select:focus,
+  .config-card input[type="number"]:focus { border-color: var(--accent); }
+
+  .target-col-hint {
+    font-size: 11px; color: var(--text3); margin-top: 8px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ---- RUN BUTTON ---- */
+  .run-wrap { display: flex; gap: 12px; margin-bottom: 44px; align-items: center; }
+
+  .run-hint {
+    font-size: 12px; color: var(--text3);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ---- PROGRESS ---- */
+  .progress-section { display: none; margin-bottom: 40px; }
+  .progress-section.visible { display: block; }
+
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px;
+    position: relative; overflow: hidden;
+  }
+
+  .progress-card::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    animation: shimmer 2s linear infinite;
+    background-size: 200% 100%;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .progress-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700;
+    margin-bottom: 22px;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite; flex-shrink: 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .steps-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .step-item {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--text3);
+    transition: color 0.3s;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .step-item.active { color: var(--accent); }
+  .step-item.done { color: var(--text2); }
+
+  .step-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--border2); flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  .step-item.active .step-dot { background: var(--accent); box-shadow: 0 0 10px rgba(0,229,160,0.5); }
+  .step-item.done .step-dot { background: var(--text3); }
+
+  /* ---- RESULTS ---- */
+  .results-section { display: none; }
+  .results-section.visible { display: block; }
+
+  /* SUMMARY CARDS */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 32px;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 18px;
+    position: relative; overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .metric-card:hover { transform: translateY(-2px); }
+
+  .metric-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+  }
+
+  .metric-card::after {
+    content: ''; position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top left, var(--card-glow, transparent) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .metric-card.green { --card-glow: rgba(0,229,160,0.05); }
+  .metric-card.green::before { background: var(--accent); }
+  .metric-card.purple { --card-glow: rgba(124,111,255,0.05); }
+  .metric-card.purple::before { background: var(--accent2); }
+  .metric-card.red { --card-glow: rgba(255,107,107,0.05); }
+  .metric-card.red::before { background: var(--accent3); }
+  .metric-card.yellow { --card-glow: rgba(255,209,102,0.05); }
+  .metric-card.yellow::before { background: var(--accent4); }
+
+  .metric-card-label {
+    font-size: 10px; color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .metric-card-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 30px; font-weight: 800;
+    line-height: 1; margin-bottom: 5px;
+  }
+
+  .metric-card.green .metric-card-value { color: var(--accent); }
+  .metric-card.purple .metric-card-value { color: var(--accent2); }
+  .metric-card.red .metric-card-value { color: var(--accent3); }
+  .metric-card.yellow .metric-card-value { color: var(--accent4); }
+
+  .metric-card-sub { font-size: 11px; color: var(--text3); }
+
+  /* TABS */
+  .tabs-nav {
+    display: flex; gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600;
+    border: none; background: transparent;
+    color: var(--text3); cursor: pointer; transition: all 0.2s;
+  }
+
+  .tab-btn:hover { color: var(--text2); }
+
+  .tab-btn.active {
+    background: var(--bg);
+    color: var(--accent);
+    box-shadow: 0 0 14px rgba(0,229,160,0.08);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* TABLES */
+  .results-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden; margin-bottom: 18px;
+  }
+
+  .table-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .table-badge {
+    font-size: 10px; font-family: 'DM Mono', monospace;
+    padding: 3px 9px; border-radius: 20px; letter-spacing: 0.08em;
+  }
+
+  .badge-green { background: rgba(0,229,160,0.1); color: var(--accent); }
+  .badge-purple { background: rgba(124,111,255,0.1); color: var(--accent2); }
+  .badge-red { background: rgba(255,107,107,0.1); color: var(--accent3); }
+  .badge-yellow { background: rgba(255,209,102,0.1); color: var(--accent4); }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    padding: 11px 20px; text-align: left;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    color: var(--text3); letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody td {
+    padding: 13px 20px; font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace; color: var(--text2);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .val-good { color: var(--accent); font-weight: 500; }
+  .val-warn { color: var(--accent4); font-weight: 500; }
+  .val-bad  { color: var(--accent3); font-weight: 500; }
+
+  /* CHART */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px; margin-bottom: 18px;
+  }
+
+  .chart-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    margin-bottom: 18px; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .charts-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 18px;
+  }
+
+  /* DOWNLOAD BAR */
+  .download-bar {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--surface);
+    border: 1px solid rgba(124,111,255,0.2);
+    border-left: 3px solid var(--accent2);
+    border-radius: var(--radius);
+    padding: 18px 22px; margin-bottom: 28px;
+  }
+
+  .download-icon { font-size: 26px; }
+
+  .download-bar-text { flex: 1; }
+  .download-bar-text strong {
+    display: block; font-size: 14px;
+    font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 2px;
+  }
+  .download-bar-text span { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+  /* DCR */
+  .dcr-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin-bottom: 18px;
+  }
+
+  .dcr-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 20px; text-align: center;
+  }
+
+  .dcr-card .value {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px; font-weight: 800;
+    color: var(--accent3); margin-bottom: 6px;
+  }
+
+  .dcr-card .label {
+    font-size: 10px; color: var(--text3);
+    font-family: 'DM Mono', monospace; letter-spacing: 0.1em;
+  }
+
+  /* DATA PREVIEW */
+  .data-preview-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  .preview-table-scroll {
+    overflow-x: auto; max-height: 320px; overflow-y: auto;
+  }
+
+  /* DETECTION */
+  .detection-result {
+    display: flex; align-items: center; gap: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 30px; margin-bottom: 18px;
+  }
+
+  .detection-big {
+    font-family: 'Syne', sans-serif;
+    font-size: 60px; font-weight: 800;
+    line-height: 1; flex-shrink: 0;
+  }
+
+  .detection-explanation p { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+  .gauge-bar {
+    width: 100%; height: 5px;
+    background: var(--border); border-radius: 3px;
+    margin-top: 14px; overflow: hidden;
+  }
+
+  .gauge-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 1s ease;
+  }
+
+  /* ERROR */
+  .error-box {
+    background: rgba(255,107,107,0.07);
+    border: 1px solid rgba(255,107,107,0.2);
+    border-left: 3px solid var(--accent3);
+    border-radius: var(--radius);
+    padding: 14px 18px; color: var(--accent3);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    display: none; margin-bottom: 18px;
+  }
+
+  .error-box.visible { display: block; }
+
+  /* LOADING OVERLAY for URL */
+  .url-loading {
+    display: none; align-items: center; gap: 10px;
+    margin-top: 12px;
+    font-size: 12px; color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .url-loading.visible { display: flex; }
+
+  /* INFO NOTE */
+  .info-note {
+    font-size: 12px; color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-top: 14px; padding: 12px 16px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    border-left: 2px solid var(--accent2);
+    line-height: 1.6;
+  }
+
+  /* COL CHIPS */
+  .col-chip {
+    display: inline-block;
+    background: rgba(0,229,160,0.07);
+    border: 1px solid rgba(0,229,160,0.14);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 10px; color: var(--accent);
+    font-family: 'DM Mono', monospace; margin: 2px;
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-up { animation: fadeUp 0.4s ease forwards; }
+
+  .result-row { opacity: 0; animation: fadeUp 0.4s ease forwards; }
+  .result-row:nth-child(1) { animation-delay: 0.05s; }
+  .result-row:nth-child(2) { animation-delay: 0.1s; }
+  .result-row:nth-child(3) { animation-delay: 0.15s; }
+  .result-row:nth-child(4) { animation-delay: 0.2s; }
+
+  /* RESPONSIVE */
+  @media (max-width: 800px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-grid  { grid-template-columns: 1fr; }
+    .config-row   { grid-template-columns: 1fr; }
+    .dcr-grid     { grid-template-columns: 1fr; }
+    .gen-grid     { grid-template-columns: repeat(2, 1fr); }
+    .detection-result { flex-direction: column; }
+  }
+
+  @media (max-width: 520px) {
+    .gen-grid { grid-template-columns: 1fr; }
+    .url-input-row { flex-direction: column; }
+    .summary-grid { grid-template-columns: 1fr; }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* DIVIDER */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+    margin: 40px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-ambient"></div>
+<div class="bg-grid"></div>
+
+<div class="page-wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-icon">⚗️</div>
+    <div class="logo-text">
+      <h1>SynthEval</h1>
+      <p>synthetic data evaluation portal</p>
+    </div>
+    <div class="header-right">
+      <span class="header-tag">in-browser</span>
+      <span class="header-badge">v2.0.0</span>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- 01 — LOAD DATASET -->
+  <!-- ============================================================ -->
+  <div class="upload-section">
+    <div class="section-label">
+      <span class="label-num">01</span>
+      Load Dataset
+    </div>
+
+    <!-- Mode Toggle -->
+    <div class="input-mode-row">
+      <button class="input-mode-btn active" id="modeFileBtn" onclick="switchInputMode('file')">
+        <span class="mode-icon">📂</span> Upload File
+      </button>
+      <button class="input-mode-btn" id="modeLinkBtn" onclick="switchInputMode('link')">
+        <span class="mode-icon">🔗</span> Dataset URL
+      </button>
+    </div>
+
+    <!-- File Panel -->
+    <div class="input-panel active" id="filePanelWrap">
+      <div class="drop-zone" id="dropZone">
+        <span class="drop-icon">📂</span>
+        <h3>Drop your CSV file here</h3>
+        <p>Supports any tabular CSV. Categorical columns will be auto-encoded.</p>
+        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+          Choose File
+        </button>
+        <input type="file" id="fileInput" accept=".csv" />
+      </div>
+    </div>
+
+    <!-- URL Panel -->
+    <div class="input-panel" id="linkPanelWrap">
+      <div class="url-panel">
+        <h3>Load dataset from URL</h3>
+        <p>Paste a direct link to a raw CSV file. Supports GitHub raw links, data repositories, and public dataset URLs.</p>
+        <div class="url-input-row">
+          <input type="text" id="urlInput" placeholder="https://raw.githubusercontent.com/.../dataset.csv" />
+          <button class="btn btn-url" onclick="loadFromUrl()">⬇ Load CSV</button>
+        </div>
+        <div class="url-loading" id="urlLoading">
+          <div class="spinner"></div> Fetching dataset…
+        </div>
+        <div class="url-examples">
+          <strong>Example datasets:</strong><br>
+          https://raw.githubusercontent.com/dsrscientist/dataset1/master/telecom_churn.csv<br>
+          https://raw.githubusercontent.com/dsrscientist/dataset1/master/titanic.csv
+        </div>
+      </div>
+    </div>
+
+    <!-- File Info Bar -->
+    <div class="file-info" id="fileInfo">
+      <div class="file-icon">📄</div>
+      <div class="file-meta">
+        <strong id="fileName">—</strong>
+        <span id="fileMeta">—</span>
+      </div>
+      <div id="colChips" style="flex:1;"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 02 — GENERATION METHOD -->
+  <!-- ============================================================ -->
+  <div class="gen-section">
+    <div class="section-label">
+      <span class="label-num">02</span>
+      Generation Method
+    </div>
+
+    <div class="gen-grid" id="genGrid">
+
+      <div class="gen-card selected" data-method="bootstrap" onclick="selectGenerator(this, 'bootstrap')">
+        <div class="gen-check">✓</div>
+        <span class="gen-card-icon">🎲</span>
+        <div class="gen-card-name">Bootstrap</div>
+        <div class="gen-card-desc">Random row sampling with replacement. Fast and simple baseline.</div>
+      </div>
+
+      <div class="gen-card" data-method="gaussian" onclick="selectGenerator(this, 'gaussian')">
+        <div class="gen-check">✓</div>
+        <span class="gen-card-icon">📊</span>
+        <div class="gen-card-name">Gaussian Noise</div>
+        <div class="gen-card-desc">Bootstrap + adds calibrated Gaussian perturbations to numeric columns.</div>
+      </div>
+
+      <div class="gen-card" data-method="marginal" onclick="selectGenerator(this, 'marginal')">
+        <div class="gen-check">✓</div>
+        <span class="gen-card-icon">📈</span>
+        <div class="gen-card-name">Marginal Dist.</div>
+        <div class="gen-card-desc">Independently samples each column from its empirical distribution.</div>
+      </div>
+
+      <div class="gen-card" data-method="smote" onclick="selectGenerator(this, 'smote')">
+        <div class="gen-check">✓</div>
+        <span class="gen-card-icon">🧬</span>
+        <div class="gen-card-name">SMOTE-like</div>
+        <div class="gen-card-desc">Interpolates between nearest neighbors to create realistic in-between rows.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 03 — CONFIG -->
+  <!-- ============================================================ -->
+  <div class="section-label">
+    <span class="label-num">03</span>
+    Configuration
+  </div>
+
+  <div class="config-row">
+    <div class="config-card">
+      <label>Target Column (Label)</label>
+      <select id="targetCol">
+        <option value="">— auto-detect last column —</option>
+      </select>
+      <div class="target-col-hint">Used for TSTR utility evaluation</div>
+    </div>
+    <div class="config-card">
+      <label>Synthetic Sample Size</label>
+      <input type="number" id="synthSize" value="100" min="10" max="10000" step="10"/>
+      <div class="target-col-hint">Number of synthetic rows to generate</div>
+    </div>
+  </div>
+
+  <!-- RUN -->
+  <div class="run-wrap">
+    <button class="btn btn-primary" id="runBtn" disabled onclick="runEvaluation()">
+      ▶ Run Evaluation
+    </button>
+    <button class="btn btn-outline" onclick="resetAll()">↺ Reset</button>
+    <span class="run-hint" id="runHint"></span>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- ============================================================ -->
+  <!-- PROGRESS -->
+  <!-- ============================================================ -->
+  <div class="progress-section" id="progressSection">
+    <div class="section-label">
+      <span class="label-num">→</span> Processing
+    </div>
+    <div class="progress-card">
+      <div class="progress-title">
+        <div class="spinner"></div>
+        Evaluating synthetic data…
+      </div>
+      <div class="steps-list" id="stepsList"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- RESULTS -->
+  <!-- ============================================================ -->
+  <div class="results-section" id="resultsSection">
+
+    <div class="section-label">
+      <span class="label-num">04</span>
+      Results
+    </div>
+
+    <!-- DOWNLOAD BAR -->
+    <div class="download-bar">
+      <div class="download-icon">⬇️</div>
+      <div class="download-bar-text">
+        <strong>Synthetic Dataset Ready</strong>
+        <span id="synthInfo">—</span>
+      </div>
+      <button class="btn btn-download" id="downloadBtn">Download CSV</button>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <!-- TABS -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('utility', this)">Utility (TSTR)</button>
+      <button class="tab-btn" onclick="switchTab('fidelity', this)">Fidelity</button>
+      <button class="tab-btn" onclick="switchTab('privacy', this)">Privacy (DCR)</button>
+      <button class="tab-btn" onclick="switchTab('detection', this)">Detection</button>
+      <button class="tab-btn" onclick="switchTab('preview', this)">Data Preview</button>
+    </div>
+
+    <!-- UTILITY TAB -->
+    <div class="tab-panel active" id="tab-utility">
+      <div class="results-table-wrap">
+        <div class="table-header">
+          TSTR — Train on Synthetic, Test on Real
+          <span class="table-badge badge-green">UTILITY</span>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Model</th>
+            <th>TSTR Accuracy</th>
+            <th>TSTR F1</th>
+            <th>Baseline Accuracy</th>
+            <th>Baseline F1</th>
+            <th>Delta</th>
+          </tr></thead>
+          <tbody id="utilityTbody"></tbody>
+        </table>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Accuracy Comparison: TSTR vs Baseline</div>
+        <canvas id="utilityChart" height="100"></canvas>
+      </div>
+      <div class="info-note">TSTR: Models trained on synthetic data, tested on real data. Higher = more useful synthetic data. Delta shows TSTR − Baseline.</div>
+    </div>
+
+    <!-- FIDELITY TAB -->
+    <div class="tab-panel" id="tab-fidelity">
+      <div class="results-table-wrap">
+        <div class="table-header">
+          DPCM — Difference in Pair Correlation Matrix
+          <span class="table-badge badge-green">FIDELITY</span>
+        </div>
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody id="dpcmTbody"></tbody>
+        </table>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-wrap">
+          <div class="chart-title">KS Test per Column</div>
+          <canvas id="ksChart"></canvas>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-title">Jensen-Shannon Divergence per Column</div>
+          <canvas id="jsdChart"></canvas>
+        </div>
+      </div>
+      <div class="results-table-wrap">
+        <div class="table-header">
+          Per-Column Fidelity Metrics
+          <span class="table-badge badge-green">FIDELITY</span>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Column</th>
+            <th>KS Statistic</th>
+            <th>Wasserstein Dist.</th>
+            <th>JSD</th>
+          </tr></thead>
+          <tbody id="fidelityTbody"></tbody>
+        </table>
+      </div>
+      <div class="info-note">KS: 0 = identical distributions. Wasserstein: lower = more similar. JSD: 0 = identical, 1 = maximally different.</div>
+    </div>
+
+    <!-- PRIVACY TAB -->
+    <div class="tab-panel" id="tab-privacy">
+      <div class="dcr-grid" id="dcrGrid"></div>
+      <div class="chart-wrap">
+        <div class="chart-title">DCR Distribution — Distance to Closest Real Record</div>
+        <canvas id="dcrChart" height="90"></canvas>
+      </div>
+      <div class="info-note">DCR measures minimum Euclidean distance from each synthetic record to any real record (after scaling). Higher values = lower memorization risk. DCR Min close to 0 indicates potential data leakage.</div>
+    </div>
+
+    <!-- DETECTION TAB -->
+    <div class="tab-panel" id="tab-detection">
+      <div class="detection-result" id="detectionResult"></div>
+      <div class="info-note">A classifier trained to distinguish real vs synthetic records. Accuracy near 50% = indistinguishable (best). Accuracy near 100% = easily detected (worst).</div>
+    </div>
+
+    <!-- PREVIEW TAB -->
+    <div class="tab-panel" id="tab-preview">
+      <div class="data-preview-wrap">
+        <div class="table-header">Synthetic Data Preview <span class="table-badge badge-purple">FIRST 20 ROWS</span></div>
+        <div class="preview-table-scroll">
+          <table id="previewTable"></table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results-section -->
+</div><!-- /page-wrap -->
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let parsedData = null;
+let syntheticData = null;
+let columns = [];
+let downloadUrl = null;
+let chartInstances = {};
+let selectedGenerator = 'bootstrap';
+
+// ============================================================
+// INPUT MODE TOGGLE
+// ============================================================
+function switchInputMode(mode) {
+  document.getElementById('filePanelWrap').classList.toggle('active', mode === 'file');
+  document.getElementById('linkPanelWrap').classList.toggle('active', mode === 'link');
+  document.getElementById('modeFileBtn').classList.toggle('active', mode === 'file');
+  document.getElementById('modeLinkBtn').classList.toggle('active', mode === 'link');
+}
+
+// ============================================================
+// GENERATOR SELECTOR
+// ============================================================
+function selectGenerator(card, method) {
+  document.querySelectorAll('.gen-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedGenerator = method;
+  updateRunHint();
+}
+
+function updateRunHint() {
+  const names = {
+    bootstrap: 'Bootstrap sampling',
+    gaussian:  'Gaussian noise augmentation',
+    marginal:  'Marginal distribution sampling',
+    smote:     'SMOTE-like interpolation'
+  };
+  const hint = document.getElementById('runHint');
+  if (parsedData) hint.textContent = `Method: ${names[selectedGenerator]}`;
+}
+
+// ============================================================
+// FILE HANDLING
+// ============================================================
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) handleFile(file);
+  else showError('Please drop a valid .csv file.');
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true,
+    complete: result => {
+      parsedData = result.data;
+      columns = result.meta.fields;
+      displayDataInfo(file.name, `${parsedData.length} rows · ${columns.length} columns · ${(file.size/1024).toFixed(1)} KB`);
+    },
+    error: () => showError('Failed to parse CSV. Please check the file format.')
+  });
+}
+
+// ============================================================
+// URL LOADING
+// ============================================================
+async function loadFromUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showError('Please enter a dataset URL.'); return; }
+
+  const loading = document.getElementById('urlLoading');
+  loading.classList.add('visible');
+  hideError();
+
+  try {
+    // Use a CORS proxy for cross-origin CSV files
+    let fetchUrl = url;
+    // Try direct fetch first, then suggest proxy if needed
+    const response = await fetch(fetchUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const text = await response.text();
+
+    Papa.parse(text, {
+      header: true, skipEmptyLines: true,
+      complete: result => {
+        if (!result.data || result.data.length === 0) {
+          showError('No data found in the CSV at this URL.');
+          loading.classList.remove('visible');
+          return;
+        }
+        parsedData = result.data;
+        columns = result.meta.fields;
+        const sizeKB = (new Blob([text]).size / 1024).toFixed(1);
+        const urlName = url.split('/').pop().split('?')[0] || 'dataset.csv';
+        displayDataInfo(urlName, `${parsedData.length} rows · ${columns.length} columns · ${sizeKB} KB · from URL`);
+        loading.classList.remove('visible');
+      },
+      error: () => {
+        showError('Failed to parse CSV from URL.');
+        loading.classList.remove('visible');
+      }
+    });
+  } catch(e) {
+    loading.classList.remove('visible');
+    showError(`Could not fetch URL: ${e.message}. Make sure the URL is publicly accessible and returns raw CSV.`);
+  }
+}
+
+function displayDataInfo(name, meta) {
+  document.getElementById('fileName').textContent = name;
+  document.getElementById('fileMeta').textContent = meta;
+  const chips = columns.map(c => `<span class="col-chip">${c}</span>`).join('');
+  document.getElementById('colChips').innerHTML = chips;
+  document.getElementById('fileInfo').classList.add('visible');
+  const sel = document.getElementById('targetCol');
+  sel.innerHTML = '<option value="">— auto-detect last column —</option>';
+  columns.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    sel.appendChild(opt);
+  });
+  document.getElementById('runBtn').disabled = false;
+  updateRunHint();
+  hideError();
+}
+
+// ============================================================
+// MATH UTILITIES
+// ============================================================
+function mean(arr) { return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function std(arr)  {
+  const m = mean(arr);
+  return Math.sqrt(arr.reduce((a,b)=>a+(b-m)**2,0)/arr.length) || 1e-6;
+}
+
+function getNumericCols(data, cols) {
+  return cols.filter(c => !isNaN(parseFloat(data[0][c])));
+}
+
+function toNumbers(data, col) {
+  return data.map(r => parseFloat(r[col])).filter(v => !isNaN(v));
+}
+
+function labelEncode(data, col) {
+  const vals = [...new Set(data.map(r=>r[col]))].sort();
+  const map = {};
+  vals.forEach((v,i) => map[v] = i);
+  return { map, encoded: data.map(r => map[r[col]] ?? 0) };
+}
+
+function preprocess(data, cols) {
+  const encoded = {};
+  const numericCols = [];
+  cols.forEach(col => {
+    const sample = data.map(r=>r[col]).find(v=>v!==null&&v!==undefined&&v!=='');
+    if (!isNaN(parseFloat(sample))) {
+      encoded[col] = data.map(r => parseFloat(r[col])||0);
+      numericCols.push(col);
+    } else {
+      const { encoded: enc } = labelEncode(data, col);
+      encoded[col] = enc;
+      numericCols.push(col);
+    }
+  });
+  return { encoded, numericCols };
+}
+
+// ============================================================
+// GENERATORS
+// ============================================================
+
+// 1) Bootstrap — original method
+function generateBootstrap(data, n) {
+  const syn = [];
+  for (let i = 0; i < n; i++) {
+    syn.push({ ...data[Math.floor(Math.random() * data.length)] });
+  }
+  return syn;
+}
+
+// 2) Gaussian Noise — bootstrap + noise on numeric cols
+function generateGaussian(data, n) {
+  const numericCols = getNumericCols(data, Object.keys(data[0]));
+  const colStats = {};
+  numericCols.forEach(col => {
+    const vals = toNumbers(data, col);
+    colStats[col] = { std: std(vals) * 0.1 }; // 10% std noise
+  });
+
+  const syn = [];
+  for (let i = 0; i < n; i++) {
+    const row = { ...data[Math.floor(Math.random() * data.length)] };
+    numericCols.forEach(col => {
+      const s = colStats[col].std;
+      // Box-Muller for Gaussian sample
+      const u1 = Math.random() || 1e-10;
+      const u2 = Math.random();
+      const z  = Math.sqrt(-2*Math.log(u1)) * Math.cos(2*Math.PI*u2);
+      row[col] = (parseFloat(row[col])||0) + z * s;
+      // Round to original precision if integer-like
+      const orig = parseFloat(data[0][col]);
+      if (Number.isInteger(orig)) row[col] = Math.round(row[col]);
+      else row[col] = parseFloat(row[col].toFixed(4));
+    });
+    syn.push(row);
+  }
+  return syn;
+}
+
+// 3) Marginal Distribution — sample each column independently
+function generateMarginal(data, n) {
+  const cols = Object.keys(data[0]);
+  const syn = [];
+  for (let i = 0; i < n; i++) {
+    const row = {};
+    cols.forEach(col => {
+      row[col] = data[Math.floor(Math.random() * data.length)][col];
+    });
+    syn.push(row);
+  }
+  return syn;
+}
+
+// 4) SMOTE-like — interpolate between two random rows (numeric cols only)
+function generateSmote(data, n) {
+  const cols = Object.keys(data[0]);
+  const numericCols = getNumericCols(data, cols);
+  const syn = [];
+
+  for (let i = 0; i < n; i++) {
+    const idxA = Math.floor(Math.random() * data.length);
+    const idxB = Math.floor(Math.random() * data.length);
+    const rowA = data[idxA];
+    const rowB = data[idxB];
+    const lam  = Math.random(); // interpolation factor
+
+    const row = {};
+    cols.forEach(col => {
+      if (numericCols.includes(col)) {
+        const vA = parseFloat(rowA[col])||0;
+        const vB = parseFloat(rowB[col])||0;
+        const interp = vA + lam * (vB - vA);
+        const orig = parseFloat(data[0][col]);
+        row[col] = Number.isInteger(orig) ? Math.round(interp) : parseFloat(interp.toFixed(4));
+      } else {
+        // For categorical: pick one of the two
+        row[col] = Math.random() < 0.5 ? rowA[col] : rowB[col];
+      }
+    });
+    syn.push(row);
+  }
+  return syn;
+}
+
+function generateSynthetic(data, n, method) {
+  switch(method) {
+    case 'gaussian':  return generateGaussian(data, n);
+    case 'marginal':  return generateMarginal(data, n);
+    case 'smote':     return generateSmote(data, n);
+    default:          return generateBootstrap(data, n);
+  }
+}
+
+// ============================================================
+// METRICS
+// ============================================================
+function ks2samp(a, b) {
+  const n1=a.length, n2=b.length;
+  const sA=[...a].sort((x,y)=>x-y);
+  const sB=[...b].sort((x,y)=>x-y);
+  let i=0,j=0,cdfA=0,cdfB=0,maxD=0;
+  while(i<n1||j<n2){
+    const va=i<n1?sA[i]:Infinity;
+    const vb=j<n2?sB[j]:Infinity;
+    if(va<=vb){cdfA=(i+1)/n1;i++;}
+    if(vb<=va){cdfB=(j+1)/n2;j++;}
+    maxD=Math.max(maxD,Math.abs(cdfA-cdfB));
+  }
+  return maxD;
+}
+
+function wasserstein1d(a, b) {
+  const sA=[...a].sort((x,y)=>x-y);
+  const sB=[...b].sort((x,y)=>x-y);
+  const n=Math.max(sA.length,sB.length);
+  let s=0;
+  for(let i=0;i<n;i++){
+    const qa=sA[Math.floor(i*sA.length/n)]||sA[sA.length-1];
+    const qb=sB[Math.floor(i*sB.length/n)]||sB[sB.length-1];
+    s+=Math.abs(qa-qb);
+  }
+  return s/n;
+}
+
+function jsDivergence(a, b, bins=20) {
+  const minV=Math.min(...a,...b), maxV=Math.max(...a,...b)+1e-9;
+  const histA=new Array(bins).fill(0), histB=new Array(bins).fill(0);
+  a.forEach(v=>{histA[Math.min(Math.floor((v-minV)/(maxV-minV)*bins),bins-1)]++;});
+  b.forEach(v=>{histB[Math.min(Math.floor((v-minV)/(maxV-minV)*bins),bins-1)]++;});
+  const pA=histA.map(x=>x/a.length), pB=histB.map(x=>x/b.length);
+  const m=pA.map((_,i)=>(pA[i]+pB[i])/2);
+  let jsd=0;
+  for(let i=0;i<bins;i++){
+    if(pA[i]>0&&m[i]>0) jsd+=pA[i]*Math.log2(pA[i]/m[i]);
+    if(pB[i]>0&&m[i]>0) jsd+=pB[i]*Math.log2(pB[i]/m[i]);
+  }
+  return Math.max(0,jsd/2);
+}
+
+function corrMatrix(encoded, cols) {
+  const n=cols.length;
+  const mat=Array.from({length:n},()=>new Array(n).fill(0));
+  for(let i=0;i<n;i++){
+    for(let j=0;j<n;j++){
+      const a=encoded[cols[i]], b=encoded[cols[j]];
+      const ma=mean(a),mb=mean(b),sa=std(a),sb=std(b);
+      const cov=mean(a.map((_,k)=>(a[k]-ma)*(b[k]-mb)));
+      mat[i][j]=cov/(sa*sb)||0;
+    }
+  }
+  return mat;
+}
+
+function dpcm(realEnc, synEnc, cols) {
+  const rMat=corrMatrix(realEnc, cols);
+  const sMat=corrMatrix(synEnc, cols);
+  let s=0,cnt=0;
+  for(let i=0;i<cols.length;i++){
+    for(let j=i+1;j<cols.length;j++){
+      s+=Math.abs(rMat[i][j]-sMat[i][j]);
+      cnt++;
+    }
+  }
+  return cnt>0?s/cnt:0;
+}
+
+function dcr(realMat, synMat) {
+  const nd=synMat.map(sr=>{
+    let minD=Infinity;
+    realMat.forEach(rr=>{
+      const d=Math.sqrt(sr.reduce((s,v,i)=>{const diff=v-(rr[i]||0);return s+diff*diff;},0));
+      if(d<minD) minD=d;
+    });
+    return minD===Infinity?0:minD;
+  }).sort((a,b)=>a-b);
+  return {
+    dcr_mean:mean(nd),
+    dcr_min:nd[0],
+    dcr_5th_percentile:nd[Math.floor(nd.length*0.05)],
+    nearest_distances:nd
+  };
+}
+
+function standardize(Xtr, Xte) {
+  const m=Xtr[0].map((_,j)=>mean(Xtr.map(r=>r[j])));
+  const s=Xtr[0].map((_,j)=>std(Xtr.map(r=>r[j]))||1);
+  const norm=X=>X.map(r=>r.map((v,j)=>(v-m[j])/s[j]));
+  return {trS:norm(Xtr),teS:norm(Xte)};
+}
+
+// ============================================================
+// CLASSIFIERS
+// ============================================================
+function trainLogistic(X, Y, lr=0.1, epochs=300) {
+  const d=X[0].length;
+  let w=new Array(d).fill(0), b=0;
+  const sig=z=>1/(1+Math.exp(-Math.min(Math.max(z,-20),20)));
+  for(let e=0;e<epochs;e++){
+    X.forEach((x,i)=>{
+      const p=sig(x.reduce((s,v,j)=>s+v*w[j],b));
+      const err=p-Y[i];
+      w=w.map((wj,j)=>wj-lr*err*x[j]/X.length);
+      b-=lr*err/X.length;
+    });
+  }
+  return { predict: x=>sig(x.reduce((s,v,j)=>s+v*w[j],b))>=0.5?1:0 };
+}
+
+function trainKNN(X, Y, k=5) {
+  return {
+    predict: x=>{
+      const dists=X.map((xi,i)=>({
+        d:Math.sqrt(xi.reduce((s,v,j)=>{const df=v-x[j];return s+df*df;},0)),
+        y:Y[i]
+      })).sort((a,b)=>a.d-b.d);
+      const votes=dists.slice(0,k).reduce((s,e)=>s+e.y,0);
+      return votes>=k/2?1:0;
+    }
+  };
+}
+
+function accuracy(Y, Yp) {
+  return Y.reduce((s,v,i)=>s+(v===Yp[i]?1:0),0)/Y.length;
+}
+
+function f1(Y, Yp) {
+  let tp=0,fp=0,fn=0;
+  Y.forEach((v,i)=>{
+    if(v===1&&Yp[i]===1)tp++;
+    if(v===0&&Yp[i]===1)fp++;
+    if(v===1&&Yp[i]===0)fn++;
+  });
+  const p=tp/(tp+fp||1), r=tp/(tp+fn||1);
+  return 2*p*r/(p+r||1);
+}
+
+// ============================================================
+// PROGRESS
+// ============================================================
+const STEPS = [
+  'Validating dataset…',
+  'Generating synthetic data…',
+  'Computing distribution metrics (KS, WD, JSD)…',
+  'Evaluating pairwise correlations (DPCM)…',
+  'Running utility benchmark (TSTR)…',
+  'Computing privacy metrics (DCR)…',
+  'Training detection classifier…',
+  'Rendering results…'
+];
+
+function setStep(i) {
+  document.querySelectorAll('.step-item').forEach((el,j)=>{
+    el.classList.remove('active','done');
+    if(j<i)  el.classList.add('done');
+    if(j===i) el.classList.add('active');
+  });
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ============================================================
+// RUN EVALUATION
+// ============================================================
+async function runEvaluation() {
+  if(!parsedData) return;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('progressSection').classList.add('visible');
+  document.getElementById('resultsSection').classList.remove('visible');
+  hideError();
+
+  const sl = document.getElementById('stepsList');
+  sl.innerHTML = STEPS.map(s=>`<div class="step-item"><div class="step-dot"></div>${s}</div>`).join('');
+  setStep(0);
+
+  try {
+    const synthN = parseInt(document.getElementById('synthSize').value)||100;
+    const targetCol = document.getElementById('targetCol').value || columns[columns.length-1];
+    const numericCols = getNumericCols(parsedData, columns);
+
+    await sleep(200); setStep(1);
+
+    // Generate synthetic data using selected method
+    syntheticData = generateSynthetic(parsedData, synthN, selectedGenerator);
+
+    await sleep(300); setStep(2);
+
+    // Distribution metrics
+    const ksVals={}, wdVals={}, jsdVals={};
+    numericCols.forEach(col=>{
+      const rVals=toNumbers(parsedData,col);
+      const sVals=toNumbers(syntheticData,col);
+      if(rVals.length<2||sVals.length<2) return;
+      ksVals[col]=ks2samp(rVals,sVals);
+      wdVals[col]=wasserstein1d(rVals,sVals);
+      jsdVals[col]=jsDivergence(rVals,sVals);
+    });
+
+    await sleep(200); setStep(3);
+
+    // DPCM
+    const allCols=columns.filter(c=>c!==targetCol);
+    const realEnc=preprocess(parsedData,allCols).encoded;
+    const synEnc=preprocess(syntheticData,allCols).encoded;
+    const realArr=allCols.map(c=>realEnc[c]);
+    const synArr=allCols.map(c=>synEnc[c]);
+    const realMatrix=parsedData.map((_,i)=>allCols.map(c=>realEnc[c][i]));
+    const synMatrix=syntheticData.map((_,i)=>allCols.map(c=>synEnc[c][i]||0));
+    const dpcmVal=dpcm(realEnc,synEnc,allCols);
+
+    await sleep(200); setStep(4);
+
+    // TSTR — encode target, train on synth, test on real
+    const { encoded: allReal } = preprocess(parsedData, columns);
+    const { encoded: allSyn  } = preprocess(syntheticData, columns);
+    const { map: labelMap } = labelEncode(parsedData, targetCol);
+    const classes = Object.values(labelMap);
+    const isBinary = classes.length === 2;
+
+    const featureCols = columns.filter(c=>c!==targetCol);
+    const realFeats  = parsedData.map((_,i)=>featureCols.map(c=>allReal[c][i]||0));
+    const realY      = parsedData.map(r=>labelMap[r[targetCol]]??0);
+    const synFeats   = syntheticData.map((_,i)=>featureCols.map(c=>allSyn[c][i]||0));
+    const synY       = syntheticData.map(r=>labelMap[r[targetCol]]??0);
+
+    const split=Math.floor(parsedData.length*0.8);
+    const rXtr=realFeats.slice(0,split), rYtr=realY.slice(0,split);
+    const rXte=realFeats.slice(split),   rYte=realY.slice(split);
+    const {trS:rTrS,teS:rTeS}=standardize(rXtr,rXte);
+
+    const sXtr=synFeats, sYtr=synY;
+    const {trS:sTrS,teS:sTeS}=standardize(sXtr,rXte);
+
+    const models=[
+      {name:'Logistic Reg', train:trainLogistic},
+      {name:'KNN (k=5)',    train:(X,Y)=>trainKNN(X,Y,5)}
+    ];
+
+    const utilityResults=models.map(m=>{
+      const tstrClf=m.train(sTrS,sYtr);
+      const tstrPred=rTeS.map(x=>tstrClf.predict(x));
+      const baseClf=m.train(rTrS,rYtr);
+      const basePred=rTeS.map(x=>baseClf.predict(x));
+      return {
+        model:m.name,
+        tstr_acc:accuracy(rYte,tstrPred),
+        tstr_f1:f1(rYte,tstrPred),
+        base_acc:accuracy(rYte,basePred),
+        base_f1:f1(rYte,basePred)
+      };
+    });
+
+    await sleep(200); setStep(5);
+
+    // DCR
+    const dcrResult=dcr(realMatrix,synMatrix);
+
+    await sleep(200); setStep(6);
+
+    // DETECTION CLASSIFIER
+    const detData=[
+      ...parsedData.map((_,i)=>({feats:realMatrix[i],y:0})),
+      ...syntheticData.map((_,i)=>({feats:synMatrix[i]||realMatrix[0].map(()=>0),y:1}))
+    ].sort(()=>Math.random()-0.5);
+    const detFeats=detData.map(r=>r.feats);
+    const detY=detData.map(r=>r.y);
+    const detSplit=Math.floor(detData.length*0.8);
+    const {trS:dtTrS,teS:dtTeS}=standardize(detFeats.slice(0,detSplit),detFeats.slice(detSplit));
+    const detClf=trainLogistic(dtTrS,detY.slice(0,detSplit));
+    const detPred=dtTeS.map(x=>detClf.predict(x));
+    const detAcc=accuracy(detY.slice(detSplit),detPred);
+
+    await sleep(200); setStep(7);
+
+    // RENDER
+    await sleep(300);
+    renderResults({
+      utilityResults, ksVals, wdVals, jsdVals, dpcmVal,
+      dcr: dcrResult, detAcc, targetCol, synthN, numericCols
+    });
+
+  } catch(e) {
+    console.error(e);
+    showError('Evaluation error: ' + e.message);
+    document.getElementById('runBtn').disabled = false;
+  }
+}
+
+// ============================================================
+// RENDER RESULTS
+// ============================================================
+const GEN_LABELS = {
+  bootstrap: 'bootstrap method',
+  gaussian:  'gaussian noise method',
+  marginal:  'marginal distribution method',
+  smote:     'SMOTE-like interpolation'
+};
+
+function renderResults({ utilityResults, ksVals, wdVals, jsdVals, dpcmVal, dcr, detAcc, targetCol, synthN, numericCols }) {
+  document.getElementById('progressSection').classList.remove('visible');
+  document.getElementById('resultsSection').classList.add('visible');
+  document.getElementById('runBtn').disabled = false;
+
+  // Download
+  const csv = Papa.unparse(syntheticData);
+  const blob = new Blob([csv], {type:'text/csv'});
+  if(downloadUrl) URL.revokeObjectURL(downloadUrl);
+  downloadUrl = URL.createObjectURL(blob);
+  document.getElementById('synthInfo').textContent =
+    `${synthN} synthetic rows · ${columns.length} columns · ${GEN_LABELS[selectedGenerator]}`;
+  document.getElementById('downloadBtn').onclick = () => {
+    const a = document.createElement('a');
+    a.href = downloadUrl; a.download = 'synthetic_data.csv'; a.click();
+  };
+
+  // Summary cards
+  const avgKS  = mean(Object.values(ksVals));
+  const tstrAcc = utilityResults[0]?.tstr_acc || 0;
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="metric-card green fade-up">
+      <div class="metric-card-label">TSTR Accuracy</div>
+      <div class="metric-card-value">${(tstrAcc*100).toFixed(1)}%</div>
+      <div class="metric-card-sub">utility metric</div>
+    </div>
+    <div class="metric-card purple fade-up">
+      <div class="metric-card-label">Avg KS Stat</div>
+      <div class="metric-card-value">${avgKS.toFixed(3)}</div>
+      <div class="metric-card-sub">fidelity metric</div>
+    </div>
+    <div class="metric-card red fade-up">
+      <div class="metric-card-label">DCR Mean</div>
+      <div class="metric-card-value">${dcr.dcr_mean.toFixed(3)}</div>
+      <div class="metric-card-sub">privacy metric</div>
+    </div>
+    <div class="metric-card yellow fade-up">
+      <div class="metric-card-label">Detection Acc</div>
+      <div class="metric-card-value">${(detAcc*100).toFixed(1)}%</div>
+      <div class="metric-card-sub">50% = best</div>
+    </div>
+  `;
+
+  // UTILITY TABLE
+  document.getElementById('utilityTbody').innerHTML = utilityResults.map(r=>{
+    const delta = r.tstr_acc - r.base_acc;
+    return `<tr class="result-row">
+      <td>${r.model}</td>
+      <td class="${r.tstr_acc>=0.7?'val-good':'val-warn'}">${(r.tstr_acc*100).toFixed(2)}%</td>
+      <td>${(r.tstr_f1*100).toFixed(2)}%</td>
+      <td>${(r.base_acc*100).toFixed(2)}%</td>
+      <td>${(r.base_f1*100).toFixed(2)}%</td>
+      <td class="${delta>=0?'val-good':'val-warn'}">${delta>=0?'+':''}${(delta*100).toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+
+  // UTILITY CHART
+  if(chartInstances.utility) chartInstances.utility.destroy();
+  chartInstances.utility = new Chart(document.getElementById('utilityChart'), {
+    type: 'bar',
+    data: {
+      labels: utilityResults.map(r=>r.model),
+      datasets: [
+        {label:'TSTR Accuracy', data:utilityResults.map(r=>r.tstr_acc), backgroundColor:'rgba(0,229,160,0.7)', borderRadius:6},
+        {label:'Baseline Accuracy', data:utilityResults.map(r=>r.base_acc), backgroundColor:'rgba(124,111,255,0.7)', borderRadius:6}
+      ]
+    },
+    options: {...chartDefaults(), scales:{y:{min:0,max:1,...yAxisDefaults()}}}
+  });
+
+  // DPCM
+  document.getElementById('dpcmTbody').innerHTML = `
+    <tr><td>DPCM Score</td>
+    <td class="${dpcmVal<0.1?'val-good':dpcmVal<0.2?'val-warn':'val-bad'}">${dpcmVal.toFixed(4)}</td>
+    <td>${dpcmVal<0.1?'Excellent correlation preservation':dpcmVal<0.2?'Good':'Poor — correlation structure differs'}</td></tr>
+  `;
+
+  // FIDELITY TABLE
+  const cols = Object.keys(ksVals);
+  document.getElementById('fidelityTbody').innerHTML = cols.map(col=>{
+    const k=ksVals[col], w=wdVals[col], j=jsdVals[col];
+    return `<tr class="result-row">
+      <td>${col}</td>
+      <td class="${k<0.1?'val-good':k<0.3?'val-warn':'val-bad'}">${k.toFixed(4)}</td>
+      <td>${w.toFixed(4)}</td>
+      <td class="${j<0.1?'val-good':j<0.3?'val-warn':'val-bad'}">${j.toFixed(4)}</td>
+    </tr>`;
+  }).join('');
+
+  // KS CHART
+  if(chartInstances.ks) chartInstances.ks.destroy();
+  chartInstances.ks = new Chart(document.getElementById('ksChart'), {
+    type: 'bar',
+    data: {
+      labels: cols,
+      datasets:[{label:'KS Statistic',data:cols.map(c=>ksVals[c]),backgroundColor:'rgba(0,229,160,0.6)',borderRadius:5}]
+    },
+    options: {...chartDefaults(), indexAxis:'y', scales:{x:{min:0,max:1,...xAxisDefaults()}}}
+  });
+
+  // JSD CHART
+  if(chartInstances.jsd) chartInstances.jsd.destroy();
+  chartInstances.jsd = new Chart(document.getElementById('jsdChart'), {
+    type: 'bar',
+    data: {
+      labels: cols,
+      datasets:[{label:'JSD',data:cols.map(c=>jsdVals[c]),backgroundColor:'rgba(124,111,255,0.6)',borderRadius:5}]
+    },
+    options: {...chartDefaults(), indexAxis:'y', scales:{x:{min:0,...xAxisDefaults()}}}
+  });
+
+  // DCR CARDS
+  document.getElementById('dcrGrid').innerHTML = `
+    <div class="dcr-card"><div class="value">${dcr.dcr_mean.toFixed(4)}</div><div class="label">DCR MEAN</div></div>
+    <div class="dcr-card"><div class="value">${dcr.dcr_min.toFixed(4)}</div><div class="label">DCR MIN</div></div>
+    <div class="dcr-card"><div class="value">${dcr.dcr_5th_percentile.toFixed(4)}</div><div class="label">5TH PERCENTILE</div></div>
+  `;
+
+  // DCR HISTOGRAM
+  const nd=dcr.nearest_distances;
+  const bins=20, minD=nd[0], maxD=nd[nd.length-1]+1e-8;
+  const hist=new Array(bins).fill(0);
+  nd.forEach(v=>{const i=Math.min(Math.floor((v-minD)/(maxD-minD)*bins),bins-1);hist[i]++;});
+  const binLabels=hist.map((_,i)=>((minD+(maxD-minD)*i/bins)).toFixed(2));
+  if(chartInstances.dcr) chartInstances.dcr.destroy();
+  chartInstances.dcr = new Chart(document.getElementById('dcrChart'), {
+    type: 'bar',
+    data: {
+      labels: binLabels,
+      datasets:[{label:'Count',data:hist,backgroundColor:'rgba(255,107,107,0.6)',borderRadius:4}]
+    },
+    options: {...chartDefaults()}
+  });
+
+  // DETECTION
+  const detColor = detAcc>0.7?'val-bad':detAcc>0.55?'val-warn':'val-good';
+  const interp = detAcc<0.55
+    ? 'Excellent — synthetic is indistinguishable from real data'
+    : detAcc<0.7
+    ? 'Fair — partially detectable by classifier'
+    : 'Poor — easily distinguished from real data';
+  document.getElementById('detectionResult').innerHTML = `
+    <div class="detection-big ${detColor}">${(detAcc*100).toFixed(1)}%</div>
+    <div class="detection-explanation">
+      <strong style="font-family:'Syne',sans-serif;font-size:15px;">Detection Accuracy</strong>
+      <p style="margin-top:8px;">${interp}. A logistic classifier trained to label records as real (0) or synthetic (1) achieved <strong>${(detAcc*100).toFixed(1)}%</strong> accuracy on held-out data. Ideal is ~50%.</p>
+      <div class="gauge-bar"><div class="gauge-fill" style="width:${detAcc*100}%"></div></div>
+    </div>
+  `;
+
+  // PREVIEW TABLE
+  const prev = syntheticData.slice(0,20);
+  document.getElementById('previewTable').innerHTML =
+    `<thead><tr>${columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead>` +
+    `<tbody>${prev.map(r=>`<tr>${columns.map(c=>`<td>${r[c]??''}</td>`).join('')}</tr>`).join('')}</tbody>`;
+}
+
+// ============================================================
+// CHART DEFAULTS
+// ============================================================
+function chartDefaults() {
+  return {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#8c92a4', font: { family: 'DM Mono', size:11 } } } },
+    animation: { duration: 600 }
+  };
+}
+function yAxisDefaults() {
+  return { ticks:{color:'#4e5468',font:{family:'DM Mono',size:10}},grid:{color:'#1e2332'},border:{color:'#1e2332'} };
+}
+function xAxisDefaults() {
+  return { ticks:{color:'#4e5468',font:{family:'DM Mono',size:10}},grid:{color:'#1e2332'},border:{color:'#1e2332'} };
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ============================================================
+// RESET
+// ============================================================
+function resetAll() {
+  parsedData = null; syntheticData = null; columns = [];
+  document.getElementById('fileInfo').classList.remove('visible');
+  document.getElementById('progressSection').classList.remove('visible');
+  document.getElementById('resultsSection').classList.remove('visible');
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('fileName').textContent = '—';
+  document.getElementById('fileMeta').textContent = '—';
+  document.getElementById('colChips').innerHTML = '';
+  document.getElementById('targetCol').innerHTML = '<option value="">— auto-detect last column —</option>';
+  document.getElementById('synthSize').value = 100;
+  document.getElementById('urlInput').value = '';
+  document.getElementById('runHint').textContent = '';
+  fileInput.value = '';
+  hideError();
+  Object.values(chartInstances).forEach(c=>c&&c.destroy());
+  chartInstances = {};
+}
+
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = '⚠ ' + msg;
+  b.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('errorBox').classList.remove('visible');
+}
+</script>
+</body>
+</html>
